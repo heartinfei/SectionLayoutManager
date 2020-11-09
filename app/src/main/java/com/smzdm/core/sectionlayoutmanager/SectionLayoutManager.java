@@ -41,41 +41,50 @@ public class SectionLayoutManager extends LinearLayoutManager {
         Log.i(tag, "------------------");
     }*/
 
+
+    /**
+     * 整体思路，在
+     *
+     * @param dy       >0 是手指向上滑动
+     * @param recycler
+     * @param state
+     * @return
+     */
     @Override
     public int scrollVerticallyBy(int dy, RecyclerView.Recycler recycler, RecyclerView.State state) {
-        RecyclerView.ViewHolder viewHolder = getViewHolderByView(getChildAt(0));
-        int postion = viewHolder.getAdapterPosition();
-        if (viewHolder instanceof Section) {
-            int top = viewHolder.itemView.getTop();
-            Log.i(tag, "top:" + top);
-            sectionView = viewHolder.itemView;
+        //在LinearLayoutManager布局看把要钉住的ViewHolder回收掉，在LinearLayoutManager布局完成后再重新按照自己的
+        // 需求排列。
+        // 这样做的原因是利用LinearLayoutManager计算当前View的尺寸和滚动距离等参数，我们要做的只是把LineaLayoutManger
+        //完成的布局修改一下排列
+        if (dy > 0) {
+            //手指向上滑动
+            RecyclerView.ViewHolder viewHolder = getViewHolderByView(getChildAt(0));
+            if (viewHolder instanceof Section) {
+                int top = viewHolder.itemView.getTop();
+                Log.i(tag, "top:" + top);
+                sectionView = viewHolder.itemView;
+            }
         }
+
         if (sectionView != null) {
             removeView(sectionView);
             recycler.recycleView(sectionView);
         }
 
         int result = super.scrollVerticallyBy(dy, recycler, state);
-        View v = getChildAt(0);
-        RecyclerView.ViewHolder viewHolder1 = getViewHolderByView(v);
-        int p2 = viewHolder1.getAdapterPosition();
 
         if (sectionView != null) {
             RecyclerView.ViewHolder vh = getViewHolderByView(getChildAt(0));
             View firstSectionView = vh instanceof Section ? vh.itemView : null;
+
             if (firstSectionView != null) {
-                Log.i(tag, "top2:" + firstSectionView.getTop());
-                removeView(firstSectionView);
+                removeAndRecycleView(sectionView,recycler);
+                sectionView = null;
             } else {
-
+                removeView(sectionView);
+                addView(sectionView);
+                sectionView.layout(0, 0, sectionView.getMeasuredWidth(), sectionView.getMeasuredHeight());
             }
-            if (firstSectionView != null && firstSectionView.getTop() < 0) {
-
-            }
-            removeView(sectionView);
-            addView(sectionView);
-            sectionView.layout(0, 0, sectionView.getMeasuredWidth(), sectionView.getMeasuredHeight());
-
         }
 
         return result;
@@ -86,7 +95,7 @@ public class SectionLayoutManager extends LinearLayoutManager {
         for (int i = 0; i < getChildCount(); i++) {
             try {
                 RecyclerView.ViewHolder viewHolder = getViewHolderByView(getChildAt(i));
-                if (viewHolder instanceof Section) {
+                if (viewHolder instanceof Section && viewHolder.itemView != sectionView) {
                     return viewHolder.itemView;
                 }
             } catch (Exception e) {
