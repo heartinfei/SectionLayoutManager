@@ -61,7 +61,7 @@ public class SectionLayoutManager extends LinearLayoutManager {
         }
         if (dy > 0) {
             //手指向上滑动
-            RecyclerView.ViewHolder viewHolder = getViewHolderByView(getChildAt(0));
+            RecyclerView.ViewHolder viewHolder = findFirstSectionViewHolder();
             if (viewHolder instanceof Section && sectionView == null) {
                 //检查第一个可见的ViewHolder是不是吸顶的ViewHolder，如果是则提取出来
                 sectionView = viewHolder.itemView;
@@ -96,12 +96,12 @@ public class SectionLayoutManager extends LinearLayoutManager {
     }
 
 
-    private View findFirstSectionView() {
+    private RecyclerView.ViewHolder findFirstSectionViewHolder() {
         for (int i = 0; i < getChildCount(); i++) {
             try {
                 RecyclerView.ViewHolder viewHolder = getViewHolderByView(getChildAt(i));
                 if (viewHolder instanceof Section && viewHolder.itemView != sectionView) {
-                    return viewHolder.itemView;
+                    return viewHolder;
                 }
             } catch (Exception e) {
                 e.printStackTrace();
