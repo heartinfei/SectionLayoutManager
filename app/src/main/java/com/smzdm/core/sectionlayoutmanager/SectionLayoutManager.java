@@ -1,7 +1,6 @@
 package com.smzdm.core.sectionlayoutmanager;
 
 import android.content.Context;
-import android.util.Log;
 import android.view.View;
 
 import androidx.annotation.NonNull;
@@ -56,12 +55,15 @@ public class SectionLayoutManager extends LinearLayoutManager {
         // 需求排列。
         // 这样做的原因是利用LinearLayoutManager计算当前View的尺寸和滚动距离等参数，我们要做的只是把LineaLayoutManger
         //完成的布局修改一下排列
+        if (sectionView != null) {
+            removeView(sectionView);
+            recycler.recycleView(sectionView);
+        }
         if (dy > 0) {
             //手指向上滑动
             RecyclerView.ViewHolder viewHolder = getViewHolderByView(getChildAt(0));
-            if (viewHolder instanceof Section) {
-                int top = viewHolder.itemView.getTop();
-                Log.i(tag, "top:" + top);
+            if (viewHolder instanceof Section && sectionView == null) {
+                //检查第一个可见的ViewHolder是不是吸顶的ViewHolder，如果是则提取出来
                 sectionView = viewHolder.itemView;
             }
         }
@@ -74,11 +76,14 @@ public class SectionLayoutManager extends LinearLayoutManager {
         int result = super.scrollVerticallyBy(dy, recycler, state);
 
         if (sectionView != null) {
-            RecyclerView.ViewHolder vh = getViewHolderByView(getChildAt(0));
+            RecyclerView.ViewHolder vh = getViewHolderByView(getChildAt(1));
             View firstSectionView = vh instanceof Section ? vh.itemView : null;
 
-            if (firstSectionView != null) {
-                removeAndRecycleView(sectionView,recycler);
+            if (firstSectionView != null
+                    && dy < 0
+                    && firstSectionView.getTop() > 0) {
+//                removeView(sectionView);
+//                recycler.recycleView(sectionView);
                 sectionView = null;
             } else {
                 removeView(sectionView);
