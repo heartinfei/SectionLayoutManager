@@ -30,7 +30,7 @@ public class SectionLayoutManager extends LinearLayoutManager {
 
     View sectionView;
 
-    @Override
+    /*@Override
     public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
         super.onLayoutChildren(recycler, state);
         if (sectionView == null) {
@@ -39,19 +39,45 @@ public class SectionLayoutManager extends LinearLayoutManager {
 //        removeView(sectionView);
 //        recycler.recycleView(sectionView);
         Log.i(tag, "------------------");
-    }
-
-    int distance = 0;
-    int lastTop = -1;
+    }*/
 
     @Override
     public int scrollVerticallyBy(int dy, RecyclerView.Recycler recycler, RecyclerView.State state) {
-        removeView(sectionView);
-        recycler.recycleView(sectionView);
+        RecyclerView.ViewHolder viewHolder = getViewHolderByView(getChildAt(0));
+        int postion = viewHolder.getAdapterPosition();
+        if (viewHolder instanceof Section) {
+            int top = viewHolder.itemView.getTop();
+            Log.i(tag, "top:" + top);
+            sectionView = viewHolder.itemView;
+        }
+        if (sectionView != null) {
+            removeView(sectionView);
+            recycler.recycleView(sectionView);
+        }
+
         int result = super.scrollVerticallyBy(dy, recycler, state);
-        removeView(findFirstSectionView());
-        addView(sectionView);
-        sectionView.layout(0, 0, sectionView.getMeasuredWidth(), sectionView.getMeasuredHeight());
+        View v = getChildAt(0);
+        RecyclerView.ViewHolder viewHolder1 = getViewHolderByView(v);
+        int p2 = viewHolder1.getAdapterPosition();
+
+        if (sectionView != null) {
+            RecyclerView.ViewHolder vh = getViewHolderByView(getChildAt(0));
+            View firstSectionView = vh instanceof Section ? vh.itemView : null;
+            if (firstSectionView != null) {
+                Log.i(tag, "top2:" + firstSectionView.getTop());
+                removeView(firstSectionView);
+            } else {
+
+            }
+            if (firstSectionView != null && firstSectionView.getTop() < 0) {
+
+            }
+            removeView(sectionView);
+            addView(sectionView);
+            sectionView.layout(0, 0, sectionView.getMeasuredWidth(), sectionView.getMeasuredHeight());
+
+        }
+
         return result;
     }
 
@@ -59,16 +85,25 @@ public class SectionLayoutManager extends LinearLayoutManager {
     private View findFirstSectionView() {
         for (int i = 0; i < getChildCount(); i++) {
             try {
-                RecyclerView.LayoutParams lp = ((RecyclerView.LayoutParams) getChildAt(i).getLayoutParams());
-                Field viewHolderField = lp.getClass().getDeclaredField("mViewHolder");
-                viewHolderField.setAccessible(true);
-                RecyclerView.ViewHolder viewHolder = (RecyclerView.ViewHolder) viewHolderField.get(lp);
+                RecyclerView.ViewHolder viewHolder = getViewHolderByView(getChildAt(i));
                 if (viewHolder instanceof Section) {
                     return viewHolder.itemView;
                 }
             } catch (Exception e) {
                 e.printStackTrace();
             }
+        }
+        return null;
+    }
+
+    private RecyclerView.ViewHolder getViewHolderByView(View view) {
+        try {
+            RecyclerView.LayoutParams lp = ((RecyclerView.LayoutParams) view.getLayoutParams());
+            Field viewHolderField = lp.getClass().getDeclaredField("mViewHolder");
+            viewHolderField.setAccessible(true);
+            return (RecyclerView.ViewHolder) viewHolderField.get(lp);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
         return null;
     }
