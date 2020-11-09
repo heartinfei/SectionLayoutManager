@@ -42,7 +42,7 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public int getItemViewType(int position) {
-            return position == 0 ? 0 : 1;
+            return position == 2 ? 0 : 1;
         }
 
         @Override
