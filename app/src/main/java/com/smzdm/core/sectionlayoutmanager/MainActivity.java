@@ -22,6 +22,10 @@ public class MainActivity extends AppCompatActivity {
         rlv = findViewById(R.id.rlv);
         rlv.setAdapter(new MyAdapter());
         rlv.setLayoutManager(new SectionLayoutManager(this));
+        findViewById(R.id.btn).setOnClickListener(v ->
+//                rlv.getAdapter().notifyItemChanged(3)
+                rlv.scrollToPosition(10)
+        );
     }
 
     static class MyAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
