@@ -15,7 +15,6 @@
 
     <com.smzdm.core.sectionlayoutmanager.MyRecyclerView
         android:id="@+id/rlv"
-        android:paddingTop="10px"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:layout_constraintBottom_toBottomOf="parent"

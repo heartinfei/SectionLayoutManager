@@ -23,8 +23,8 @@ public class MainActivity extends AppCompatActivity {
         rlv.setAdapter(new MyAdapter());
         rlv.setLayoutManager(new SectionLayoutManager(this));
         findViewById(R.id.btn).setOnClickListener(v ->
-//                rlv.getAdapter().notifyItemChanged(3)
-                rlv.scrollToPosition(10)
+//                rlv.getAdapter().notifyDataSetChanged()
+                        rlv.scrollToPosition(10)
         );
     }
 
@@ -46,7 +46,7 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public int getItemViewType(int position) {
-            return position == 2 ? 0 : 1;
+            return position % 20 == 0 ? 0 : 1;
         }
 
         @Override
@@ -54,6 +54,8 @@ public class MainActivity extends AppCompatActivity {
             Log.i(tag, "onBindViewHolder");
             if (getItemViewType(position) == 1) {
                 ((ItemViewHolder) holder).tv.setText("ViewHolder item " + position);
+            } else {
+                ((SectionViewHolder) holder).tv.setText("Section " + position);
             }
         }
 

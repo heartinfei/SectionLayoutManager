@@ -1,6 +1,7 @@
 package com.smzdm.core.sectionlayoutmanager;
 
 import android.content.Context;
+import android.util.Log;
 import android.view.View;
 
 import androidx.annotation.NonNull;
@@ -10,8 +11,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.smzdm.core.sectionlayoutmanager.holders.Section;
 
 import java.lang.reflect.Field;
-import java.util.Set;
-import java.util.Stack;
+import java.util.SortedSet;
 import java.util.TreeSet;
 
 /**
@@ -30,53 +30,52 @@ public class SectionLayoutManager extends LinearLayoutManager {
         super.detachAndScrapAttachedViews(recycler);
     }
 
-    View sectionView;
-    private Set<Integer> sectionPositions = new TreeSet<>();
-    private Stack<RecyclerView.ViewHolder> attachedSection = new Stack<>();
+    /**
+     * 最多吸顶个数
+     */
+    private int maxSectionCount = 1;
+
+    /**
+     * 存储所有 section position
+     * 在滚动的过程中进行更新这个已经实现，记录所有的Section的Position，但是有以下情况需要考虑
+     * 1. adapter.notifyDataSetChanged()一系列方法调用的时候 更新问题
+     * 2. scrollToPosition -- 更新问题
+     * 3. 快速滚动的时候有些ViewHolder的绘制过程是省略的
+     */
+    private SortedSet<Integer> sectionPositions = new TreeSet<>();
+
+    /**
+     * position < firstVisibleItemPosition的SectionViewHolder
+     * 存储已经吸顶的Section（或已经滚动过去的SectionViewHolder）
+     */
+    private SectionCache sectionCache = new SectionCache();
 
     @Override
     public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
         super.onLayoutChildren(recycler, state);
-//        if (sectionView == null) {
-//            sectionView = findFirstSectionView();
+//        for (int i = 0; i < getChildCount(); i++) {
+//            RecyclerView.ViewHolder vh = getViewHolderByView(getChildAt(i));
+//            int position = vh.getLayoutPosition();
+//            if (vh instanceof Section) {
+//                sectionPositions.add(position);
+//            } else {
+//                sectionPositions.remove(position);
+//            }
 //        }
-//        removeView(sectionView);
-//        recycler.recycleView(sectionView);
-//        Log.i(tag, "------------------");
-        for (int i = 0; i < getChildCount(); i++) {
-            RecyclerView.ViewHolder vh = getViewHolderByView(getChildAt(i));
-            if (!(vh instanceof Section)) {
-                continue;
-            }
-            if (vh.itemView.getTop() < 0) {
-                attachedSection.add(vh);
-            } else {
-                sectionPositions.add(vh.getLayoutPosition());
-            }
-        }
-        int t = state.getTargetScrollPosition();
-
-        onLayoutSection(state);
     }
 
-    private void onLayoutSection(RecyclerView.State state) {
-        int startY = getPaddingTop();
-        //int range = computeHorizontalScrollRange(state);
-        int extent = computeHorizontalScrollExtent(state);
-        //int h= getHeight();
-        for (RecyclerView.ViewHolder viewHolder : attachedSection) {
-            viewHolder.itemView.layout(viewHolder.itemView.getLeft(),
-                    startY,
-                    viewHolder.itemView.getRight(),
-                    viewHolder.itemView.getBottom() + startY);
-
-            startY += viewHolder.itemView.getHeight();
+    private void removeAllSections() {
+        for (RecyclerView.ViewHolder viewHolder : sectionCache) {
+            removeView(viewHolder.itemView);
         }
     }
 
 
     /**
-     * 整体思路，在
+     * 整体思路，
+     * 在手指上滑（向上滚动 dy > 0）的时候,SectionViewHolder不能进入Holder缓存，需要独立缓存
+     * 在手指下滑（向下滚动 dy < 0）的时候，SectionViewHolder在离开吸顶位置的时候需要将该ViewHolder重新放入缓存池，
+     * 正常显示在列表中
      *
      * @param dy       >0 是手指向上滑动
      * @param recycler
@@ -85,74 +84,89 @@ public class SectionLayoutManager extends LinearLayoutManager {
      */
     @Override
     public int scrollVerticallyBy(int dy, RecyclerView.Recycler recycler, RecyclerView.State state) {
-        //在LinearLayoutManager布局看把要钉住的ViewHolder回收掉，在LinearLayoutManager布局完成后再重新按照自己的
-        // 需求排列。
-        // 这样做的原因是利用LinearLayoutManager计算当前View的尺寸和滚动距离等参数，我们要做的只是把LineaLayoutManger
-        //完成的布局修改一下排列
-
-        if (sectionView != null) {
-            removeView(sectionView);
-//            recycler.recycleView(sectionView);
-        }
-        if (dy > 0) {
-            //手指向上滑动
-            RecyclerView.ViewHolder viewHolder = findFirstSectionViewHolder();
-            if (viewHolder instanceof Section && sectionView == null) {
-                //检查第一个可见的ViewHolder是不是吸顶的ViewHolder，如果是则提取出来
-                sectionView = viewHolder.itemView;
+        for (int i = 0; i < getChildCount(); i++) {
+            View itemView = getChildAt(i);
+            RecyclerView.ViewHolder vh = getViewHolderByView(itemView);
+            if (!(vh instanceof Section) || sectionCache.peek() == vh) {
+                continue;
+            }
+            if (dy > 0 && vh.itemView.getTop() < dy) {
+                sectionCache.push(vh);
+                Log.i(tag, "搜集：dy=" + dy);
+            } else {
+                break;
             }
         }
-        recycler.getViewForPosition(0);
-        if (sectionView != null) {
-            removeView(sectionView);
-            recycler.recycleView(sectionView);
-        }
-
+        //拒绝进入系统的回收复用策略
+        removeAllSections();
 
         int result = super.scrollVerticallyBy(dy, recycler, state);
-//
-        if (sectionView != null) {
-            RecyclerView.ViewHolder vh = getViewHolderByView(getChildAt(1));
-            View firstSectionView = vh instanceof Section ? vh.itemView : null;
 
-            if (firstSectionView != null
-                    && dy < 0
-                    && firstSectionView.getTop() > 0) {
-//                removeView(sectionView);
-//                recycler.recycleView(sectionView);
-                sectionView = null;
-            } else {
-                View sv = recycler.getViewForPosition(2);
-                removeView(sectionView);
-                addView(sectionView);
-                sectionView.layout(0, 0, sectionView.getMeasuredWidth(), sectionView.getMeasuredHeight());
+        RecyclerView.ViewHolder vh = getViewHolderByView(getChildAt(0));
+        RecyclerView.ViewHolder attachedSection = sectionCache.peek();
+        if ((vh instanceof Section)
+                && attachedSection != null
+                && attachedSection.getLayoutPosition() == vh.getLayoutPosition()) {
+            removeViewAt(0);
+        }
+
+        //检查栈顶 -- 同步状态
+        for (RecyclerView.ViewHolder removedViewHolder : sectionCache.clearTop(findFirstVisibleItemPosition())) {
+            Log.i(tag, "移除ViewHolder:" + removedViewHolder.toString());
+            for (int i = 0; i < getChildCount(); i++) {
+                RecyclerView.ViewHolder attachedViewHolder = getViewHolderByView(getChildAt(i));
+                if (removedViewHolder.getLayoutPosition() == attachedViewHolder.getLayoutPosition()) {
+                    View attachedItemView = attachedViewHolder.itemView;
+                    int left = attachedItemView.getLeft();
+                    int top = attachedItemView.getTop();
+                    int bottom = attachedItemView.getBottom();
+                    int right = attachedItemView.getRight();
+
+                    removeView(attachedItemView);
+                    addView(removedViewHolder.itemView, i);
+                    removedViewHolder.itemView.layout(left, top, right, bottom);
+                    break;
+                }
             }
         }
 
+        RecyclerView.ViewHolder section = sectionCache.peek();
+        if (section != null) {
+            View itemView = section.itemView;
+            if (!itemView.isAttachedToWindow()) {
+                addView(itemView);
+            }
+            View subItem = getChildAt(1);
+            if (getViewHolderByView(subItem) instanceof Section) {
+                int h = itemView.getMeasuredHeight();
+                int top = Math.min(0, -(h - subItem.getTop()));
+                int bottom = Math.min(h, subItem.getTop());
+                itemView.layout(0, top, itemView.getMeasuredWidth(), bottom);
+            } else {
+                itemView.layout(0, 0, itemView.getMeasuredWidth(), itemView.getMeasuredHeight());
+            }
+        }
         return result;
     }
 
 
-    private int getViewHolderCachePosition(RecyclerView.ViewHolder vh) {
-        return vh != null ? vh.getLayoutPosition() : -1;
+    @Override
+    public void scrollToPosition(int position) {
+        super.scrollToPosition(position);
+        //TODO: 搜集ViewHolderSection
     }
 
-
-    private RecyclerView.ViewHolder findFirstSectionViewHolder() {
-        for (int i = 0; i < getChildCount(); i++) {
-            try {
-                RecyclerView.ViewHolder viewHolder = getViewHolderByView(getChildAt(i));
-                if (viewHolder instanceof Section && viewHolder.itemView != sectionView) {
-                    return viewHolder;
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-        return null;
+    @Override
+    public void smoothScrollToPosition(RecyclerView recyclerView, RecyclerView.State state,
+                                       int position) {
+        super.smoothScrollToPosition(recyclerView, state, position);
     }
+
 
     private RecyclerView.ViewHolder getViewHolderByView(View view) {
+        if (view == null) {
+            return null;
+        }
         try {
             RecyclerView.LayoutParams lp = ((RecyclerView.LayoutParams) view.getLayoutParams());
             Field viewHolderField = lp.getClass().getDeclaredField("mViewHolder");
